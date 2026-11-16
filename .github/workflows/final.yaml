@@ -1,0 +1,46 @@
+name: golang-pipeline
+on: push
+jobs:
+    test:
+      runs-on: ubuntu-latest
+      container: golang:1.26
+      steps:
+        - uses: actions/checkout@v7
+
+        - name: Vet
+          run: go vet ./...
+        
+        - name: Run Unit Tests
+          run: GOOS=linux GOARCH=amd64 go test
+
+    deploy:
+        name: Push App to Docker Hub
+        runs-on: ubuntu-latest
+        needs: test
+        if: startsWith(github.ref, 'refs/tags')
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7\
+            
+            - name: Set up Docker buildx
+              uses: docker/setup-buildx-action@v4
+
+            - name: Log in to Docker Hub
+              uses: docker/login-action@v4
+              with:
+                username: ${{ secrets.DOCKER_USERNAME }}
+                password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta
+              uses: docker/metadata-action@v6
+              with:
+                images: regreat39/final-s12
+
+            - name: Build and push
+              uses: docker/build-push-action@v7
+              with:
+                context: .
+                push: true
+                tags: ${{ steps.meta.outputs.tags }}
+                labels: ${{ steps.meta.outputs.labels }}
